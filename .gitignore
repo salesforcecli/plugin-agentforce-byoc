@@ -1,0 +1,8 @@
+node_modules
+/lib
+oclif.manifest.json
+*.tsbuildinfo
+*.tgz
+.DS_Store
+__pycache__/
+*.pyc
