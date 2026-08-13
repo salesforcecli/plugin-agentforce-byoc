@@ -1,0 +1,79 @@
+{
+  "name": "@salesforce/plugin-agentforce-byoc",
+  "description": "Salesforce CLI plugin for Agentforce BYOC (Bring Your Own Code)",
+  "version": "0.1.0",
+  "author": "Agentforce BYOC",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": "./lib/index.js",
+  "bin": {
+    "agentforce-byoc": "./bin/run.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@oclif/core": "^4",
+    "@salesforce/core": "^8",
+    "@salesforce/sf-plugins-core": "^12",
+    "tar": "^7.4.3"
+  },
+  "devDependencies": {
+    "@oclif/plugin-help": "^6",
+    "@salesforce/cli-plugins-testkit": "^5",
+    "@types/chai": "^4",
+    "@types/mocha": "^10",
+    "@types/node": "^18",
+    "@types/tar": "^6",
+    "@typescript-eslint/eslint-plugin": "^7",
+    "@typescript-eslint/parser": "^7",
+    "chai": "^4",
+    "chai-as-promised": "^7",
+    "@types/chai-as-promised": "^7",
+    "eslint": "^8",
+    "mocha": "^10",
+    "prettier": "^3",
+    "oclif": "^4",
+    "ts-node": "^10",
+    "typescript": "^5"
+  },
+  "files": [
+    "/assets",
+    "/bin",
+    "/lib",
+    "/messages",
+    "/oclif.manifest.json"
+  ],
+  "keywords": [
+    "force",
+    "salesforce",
+    "sf",
+    "sf-plugin",
+    "agentforce",
+    "byoc"
+  ],
+  "oclif": {
+    "commands": "./lib/commands",
+    "bin": "sf",
+    "topicSeparator": " ",
+    "devPlugins": [
+      "@oclif/plugin-help"
+    ],
+    "topics": {
+      "agentforce-byoc": {
+        "description": "Build, package, and deploy Agentforce BYOC (Bring Your Own Code) agents."
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p . && oclif manifest",
+    "clean": "rm -rf lib oclif.manifest.json tsconfig.tsbuildinfo",
+    "compile": "tsc -p .",
+    "lint": "eslint src --ext .ts",
+    "postpack": "rm -f oclif.manifest.json",
+    "prepack": "rm -rf lib && tsc -p . && oclif manifest",
+    "test": "mocha --forbid-only \"test/**/*.test.ts\"",
+    "test:python": "python3 -m unittest discover -s test/python -v",
+    "version": "oclif readme"
+  }
+}
