@@ -15,7 +15,7 @@ export default class Init extends SfCommand<InitResult> {
   public static readonly summary = 'Scaffold a new Agentforce BYOC project.';
   public static readonly description =
     'Creates a project directory with a starter agent (main.py), config, and metadata.';
-  public static readonly examples = ['sf agentforce-byoc init my-agent'];
+  public static readonly examples = ['sf agentforce-byoc init --name my-agent'];
 
   public static readonly args = {};
   public static readonly strict = false;
