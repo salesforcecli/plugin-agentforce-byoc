@@ -37,6 +37,9 @@
     "ts-node": "^10",
     "typescript": "^5"
   },
+  "overrides": {
+    "serialize-javascript": "^7.0.5"
+  },
   "files": [
     "/assets",
     "/bin",
