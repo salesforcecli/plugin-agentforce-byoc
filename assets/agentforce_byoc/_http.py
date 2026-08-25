@@ -1,3 +1,18 @@
+# Copyright (c) 2026, Salesforce, Inc.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Internal HTTP helpers (stdlib only).
 
 Small wrapper over ``http.client`` so the relay and deploy clients share one
@@ -7,10 +22,10 @@ a BYOC package). It sends outgoing header names verbatim.
 Set ``AGENTFORCE_BYOC_DEBUG=1`` to log outgoing headers/body, the raw bytes on
 the wire (http.client debuglevel), and the response. This is invaluable when a
 call fails in a way that looks like a client bug: e.g. a 400
-"x-sfdc-core-tenant-id header is required" is usually emitted upstream by SFAP
-when it cannot derive the tenant from the OrgJWT (expired/unauthorized token or
-an SFAP auth-policy gap) -- not because the SDK omitted the header. The debug
-'send:' line shows exactly what left the machine.
+"x-sfdc-core-tenant-id header is required" is usually returned by the platform
+when it cannot resolve the tenant from the OrgJWT (expired/unauthorized token)
+-- not because the SDK omitted the header. The debug 'send:' line shows exactly
+what left the machine.
 """
 
 import http.client
@@ -81,7 +96,9 @@ def request(
 
     if debug:
         logger.info("[debug] HTTP %s %s", method, url)
-        logger.info("[debug] host=%s port=%s scheme=%s", parsed.hostname, parsed.port, parsed.scheme)
+        logger.info(
+            "[debug] host=%s port=%s scheme=%s", parsed.hostname, parsed.port, parsed.scheme
+        )
         logger.info("[debug] request path=%s", _path_with_query(parsed))
         logger.info("[debug] request headers=%s", _redact_headers(headers))
         if body is not None:

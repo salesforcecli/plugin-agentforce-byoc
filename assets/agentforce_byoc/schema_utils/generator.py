@@ -1,5 +1,5 @@
-# Copyright (c) 2025, Salesforce, Inc.
-# SPDX-License-Identifier: Apache-2
+# Copyright (c) 2026, Salesforce, Inc.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -52,7 +52,13 @@ from typing import (
     Tuple,
 )
 
-import yaml
+# NOTE: PyYAML is imported lazily inside the functions that need it
+# (generate_schema_yaml / load_config), NOT at module top level. This module is
+# re-exported from agentforce_byoc.schema_utils, which generated packages import
+# just to get the @entry_func / @requestSchema / @responseSchema decorators.
+# Those packages don't depend on PyYAML (the AST-based generator is a CLI/dev
+# tool, not a runtime dependency), so a top-level `import yaml` would crash the
+# package at import time with ModuleNotFoundError.
 
 # ---------------------------------------------------------------------------
 # Python-type → OpenAPI type mapping
@@ -589,6 +595,8 @@ def generate_schema_yaml(
     package: str = _DEFAULT_PACKAGE,
 ) -> str:
     """Read the Python file at *source_path* and return its OpenAPI spec as YAML."""
+    import yaml
+
     with open(source_path, "r") as f:
         source = f.read()
     spec = generate_schema(source, namespace=namespace, package=package)
@@ -613,6 +621,8 @@ def load_config(config_path: str) -> Dict[str, str]:
 
         data = json.loads(raw)
     else:
+        import yaml
+
         data = yaml.safe_load(raw)
 
     if not isinstance(data, dict):

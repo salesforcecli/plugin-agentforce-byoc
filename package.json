@@ -10,7 +10,7 @@
     "agentforce-byoc": "./bin/run.js"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@oclif/core": "^4",
@@ -36,6 +36,9 @@
     "oclif": "^4",
     "ts-node": "^10",
     "typescript": "^5"
+  },
+  "overrides": {
+    "serialize-javascript": "^7.0.5"
   },
   "files": [
     "/assets",

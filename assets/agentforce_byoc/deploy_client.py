@@ -1,21 +1,47 @@
+# Copyright (c) 2026, Salesforce, Inc.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """HTTP client for the Agentforce BYOC deploy/upload API.
 
-Implements the two-step package upload against ai-byoc-proxy (fronted by SFAP):
+Implements the two-step package upload against the Agentforce BYOC platform:
 
-1. ``POST <base>/byoc/upload`` to obtain a presigned S3 URL.
+1. ``POST <base>/byoc/upload/request`` to register package metadata AND obtain a
+   presigned upload URL in one call. The body carries ``packageName``,
+   ``version``, ``packageSize``, ``entryPoints``, and ``maxLiveDurationS``; the
+   response returns the presigned ``uploadUrl``.
 2. ``PUT`` the package archive to that presigned URL.
-3. ``POST <base>/byoc/upload/status`` to register package metadata.
 
-The base URL is resolved from the tenant id by
-:func:`agentforce_byoc.gateway.relay_client.resolve_sfap_base_url`. Auth is sent
-as ``Authorization: Bearer <org-jwt>`` plus the ``x-sfdc-core-tenant-id`` header;
-the proxy reads the tenant from that header and SFAP verifies the JWT.
+Deployment status can then be polled read-only via
+``GET <base>/byoc/upload/status?packageName=&version=``, which reports
+``registrationStatus`` (is the package registered) and ``uploadStatus`` (has the
+archive been uploaded). That endpoint never writes — registration happens in
+step 1.
+
+The base URL is resolved by
+:func:`agentforce_byoc.gateway.relay_client.resolve_sfap_base_url` — from the
+``BYOC_PROXY_URL`` environment variable when set, else derived from the tenant
+id. Auth is sent as ``Authorization: Bearer <org-jwt>`` plus the
+``x-sfdc-core-tenant-id``, ``x-sfdc-user-id``, and ``x-sfdc-app-context``
+headers.
 
 Uses only the Python standard library so nothing extra is bundled into a BYOC
 package.
 """
 
 import json
+import urllib.parse
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -24,39 +50,50 @@ from agentforce_byoc.logging import get_logger
 
 logger = get_logger(__name__)
 
-# The presigned URL is signed by the proxy with ContentType "application/gzip"
-# (see ai-byoc-proxy package_service.generate_presigned_upload_url). The PUT
-# must send exactly this Content-Type or S3 rejects the signature.
+# The presigned URL is signed for ContentType "application/gzip". The PUT must
+# send exactly this Content-Type or the upload is rejected as a signature
+# mismatch.
 _PACKAGE_CONTENT_TYPE = "application/gzip"
 
-# Timeout (seconds) for control-plane calls and the S3 upload PUT.
+# Timeout (seconds) for API calls and the package upload PUT.
 _DEPLOY_TIMEOUT_S = 120
 
 
-def _post_json(url: str, body: Dict[str, Any], org_jwt: str, tenant_id: str) -> Dict[str, Any]:
+def _post_json(
+    url: str,
+    body: Dict[str, Any],
+    org_jwt: str,
+    tenant_id: str,
+    user_id: str,
+    app_context: str,
+) -> Dict[str, Any]:
     """
-    POST a JSON body to a BYOC control-plane endpoint and parse the response.
+    POST a JSON body to a BYOC API endpoint and parse the response.
 
-    Sends the org JWT as a bearer token and the tenant id as the
-    ``x-sfdc-core-tenant-id`` header.
+    Sends the org JWT as a bearer token plus the tenant id, user id, and app
+    context as the ``x-sfdc-core-tenant-id`` / ``x-sfdc-user-id`` /
+    ``x-sfdc-app-context`` headers.
 
     Raises:
         RuntimeError: On HTTP error, transport error, or a non-JSON response.
     """
-    # SFAP verifies the OrgJWT and derives the tenant; we also pass the tenant
-    # header explicitly. A 400 "x-sfdc-core-tenant-id header is required" comes
-    # from SFAP rejecting the JWT, not a missing header here.
+    # The org JWT is sent as a bearer token; the tenant id also travels as the
+    # x-sfdc-core-tenant-id header. A 400 "x-sfdc-core-tenant-id header is
+    # required" indicates the JWT was rejected, not a missing header here. The
+    # user id and app context identify who is deploying, matching the relay path.
     headers = {
         "Authorization": f"Bearer {org_jwt}",
         "x-sfdc-core-tenant-id": tenant_id,
+        "x-sfdc-user-id": user_id,
+        "x-sfdc-app-context": app_context,
     }
     try:
         status, raw = _http.post_json(url, body, headers, timeout=_DEPLOY_TIMEOUT_S)
     except OSError as e:
         raise RuntimeError(f"BYOC API call to {url} failed: {e}") from e
 
-    # Surface the BYOC service response (status + body) so callers can see
-    # exactly what the control plane returned.
+    # Surface the BYOC API response (status + body) so callers can see exactly
+    # what the platform returned.
     logger.info("BYOC API %s -> status=%s body=%s", url, status, raw)
 
     if status >= 400:
@@ -66,6 +103,46 @@ def _post_json(url: str, body: Dict[str, Any], org_jwt: str, tenant_id: str) -> 
         return json.loads(raw)
     except json.JSONDecodeError as e:
         raise RuntimeError(f"BYOC API at {url} returned a non-JSON response: {raw!r}") from e
+
+
+def _get_json(
+    url: str,
+    org_jwt: str,
+    tenant_id: str,
+    user_id: str,
+    app_context: str,
+) -> Dict[str, Any]:
+    """
+    GET a BYOC API endpoint and parse the JSON response.
+
+    Sends the same identity headers as :func:`_post_json`. Used for the
+    read-only ``GET /byoc/upload/status`` poll, which takes its parameters in
+    the query string and has no request body.
+
+    Raises:
+        RuntimeError: On HTTP error, transport error, or a non-JSON response.
+    """
+    headers = {
+        "Authorization": f"Bearer {org_jwt}",
+        "x-sfdc-core-tenant-id": tenant_id,
+        "x-sfdc-user-id": user_id,
+        "x-sfdc-app-context": app_context,
+    }
+    try:
+        status, raw = _http.request("GET", url, headers=headers, timeout=_DEPLOY_TIMEOUT_S)
+    except OSError as e:
+        raise RuntimeError(f"BYOC API call to {url} failed: {e}") from e
+
+    body_text = raw.decode("utf-8", errors="replace")
+    logger.info("BYOC API %s -> status=%s body=%s", url, status, body_text)
+
+    if status >= 400:
+        raise RuntimeError(f"BYOC API call to {url} failed with status {status}: {body_text}")
+
+    try:
+        return json.loads(body_text)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"BYOC API at {url} returned a non-JSON response: {body_text!r}") from e
 
 
 def _put_file(url: str, file_path: Path, content_type: str) -> None:
@@ -91,28 +168,43 @@ def _put_file(url: str, file_path: Path, content_type: str) -> None:
 
     if status >= 400:
         body_text = raw.decode("utf-8", errors="replace")
-        raise RuntimeError(
-            f"Upload to presigned URL failed with status {status}: {body_text}"
-        )
+        raise RuntimeError(f"Upload to presigned URL failed with status {status}: {body_text}")
 
 
 def request_presigned_upload(
     base_url: str,
     tenant_id: str,
     org_jwt: str,
+    user_id: str,
+    app_context: str,
     package_name: str,
     version: str,
+    package_size: int,
+    entry_points: List[str],
+    max_live_duration_s: int,
 ) -> Dict[str, Any]:
     """
-    Step 1: request a presigned S3 upload URL.
+    Step 1: register package metadata and get a presigned upload URL.
+
+    ``POST /byoc/upload/request`` does both in one call: it registers the
+    package metadata (``packageSize``, ``entryPoints``, ``maxLiveDurationS``) and
+    returns the presigned ``uploadUrl``. The caller then PUTs the archive to that
+    URL (see :func:`upload_package`).
 
     Returns:
-        The proxy response ``{uploadUrl, s3Key, tenantId, packageName, version}``.
+        The response ``{uploadUrl, s3Key, tenantId, packageName, version,
+        uploadTime, packageSize, entryPoints, maxLiveDurationS, status}``.
     """
-    url = f"{base_url}/byoc/upload"
-    body = {"packageName": package_name, "version": version}
-    logger.info("Requesting presigned upload URL from %s", url)
-    return _post_json(url, body, org_jwt, tenant_id)
+    url = f"{base_url}/byoc/upload/request"
+    body = {
+        "packageName": package_name,
+        "version": version,
+        "packageSize": package_size,
+        "entryPoints": entry_points,
+        "maxLiveDurationS": max_live_duration_s,
+    }
+    logger.info("Registering package + requesting presigned upload URL from %s", url)
+    return _post_json(url, body, org_jwt, tenant_id, user_id, app_context)
 
 
 def upload_package(upload_url: str, file_path: Path) -> None:
@@ -121,29 +213,34 @@ def upload_package(upload_url: str, file_path: Path) -> None:
     _put_file(upload_url, file_path, _PACKAGE_CONTENT_TYPE)
 
 
-def report_upload_status(
+def get_upload_status(
     base_url: str,
     tenant_id: str,
     org_jwt: str,
+    user_id: str,
+    app_context: str,
     package_name: str,
     version: str,
-    package_size: int,
-    entry_points: List[str],
-    max_live_duration_s: int,
 ) -> Dict[str, Any]:
     """
-    Step 3: report upload status and register package metadata.
+    Poll deployment status (read-only).
+
+    Calls ``GET /byoc/upload/status`` with ``packageName`` and ``version`` in the
+    query string. The endpoint never writes — registration happens in
+    :func:`request_presigned_upload`. It reports both halves of the two-phase
+    upload independently:
+
+    - ``registrationStatus``: ``"registered"`` if the package metadata exists,
+      else ``"unregistered"``.
+    - ``uploadStatus``: ``"uploaded"`` if the archive has been uploaded,
+      ``"pending"`` if not, ``"unknown"`` if the check itself failed.
 
     Returns:
-        The stored metadata record.
+        ``{tenantId, packageName, version, s3Key, registrationStatus,
+        uploadStatus, ...}`` (plus ``uploadTime``/``packageSize``/``entryPoints``/
+        ``maxLiveDurationS`` when registered).
     """
-    url = f"{base_url}/byoc/upload/status"
-    body = {
-        "packageName": package_name,
-        "version": version,
-        "packageSize": package_size,
-        "entryPoints": entry_points,
-        "maxLiveDurationS": max_live_duration_s,
-    }
-    logger.info("Reporting upload status to %s", url)
-    return _post_json(url, body, org_jwt, tenant_id)
+    query = urllib.parse.urlencode({"packageName": package_name, "version": version})
+    url = f"{base_url}/byoc/upload/status?{query}"
+    logger.info("Polling upload status from %s", url)
+    return _get_json(url, org_jwt, tenant_id, user_id, app_context)
