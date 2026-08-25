@@ -190,7 +190,7 @@ describe('requestUploadAndRegister', () => {
 });
 
 describe('getUploadStatus', () => {
-  it('GETs /byoc/upload/status with query + auth headers and returns both statuses', async () => {
+  it('GETs /byoc/upload/status with query + auth + app-context headers and returns both statuses', async () => {
     const body = {
       tenantId: 'core/exampleInstance/00Dxx',
       packageName: 'my-agent',
@@ -206,7 +206,8 @@ describe('getUploadStatus', () => {
         'core/exampleInstance/00Dxx',
         'jwt-abc',
         'my-agent',
-        '1.0'
+        '1.0',
+        'EinsteinGPT'
       );
       expect(result).to.deep.equal(body);
       expect(stub.calls).to.have.length(1);
@@ -218,6 +219,7 @@ describe('getUploadStatus', () => {
       const headers = init.headers as Record<string, string>;
       expect(headers.Authorization).to.equal('Bearer jwt-abc');
       expect(headers['x-sfdc-core-tenant-id']).to.equal('core/exampleInstance/00Dxx');
+      expect(headers['x-sfdc-app-context']).to.equal('EinsteinGPT');
     } finally {
       stub.restore();
     }
@@ -226,7 +228,7 @@ describe('getUploadStatus', () => {
   it('url-encodes the package name and version', async () => {
     const stub = stubFetch({ status: 200, body: {} });
     try {
-      await getUploadStatus('https://api.salesforce.com', 'core/exampleInstance/00D', 'j', 'a b', '1.0-beta+1');
+      await getUploadStatus('https://api.salesforce.com', 'core/exampleInstance/00D', 'j', 'a b', '1.0-beta+1', 'EinsteinGPT');
       expect(stub.calls[0].url).to.equal(
         'https://api.salesforce.com/byoc/upload/status?packageName=a%20b&version=1.0-beta%2B1'
       );
@@ -239,7 +241,7 @@ describe('getUploadStatus', () => {
     const stub = stubFetch({ status: 500, body: { detail: 'boom' } });
     try {
       await expect(
-        getUploadStatus('https://api.salesforce.com', 'core/exampleInstance/00D', 'j', 'pkg', '1.0')
+        getUploadStatus('https://api.salesforce.com', 'core/exampleInstance/00D', 'j', 'pkg', '1.0', 'EinsteinGPT')
       ).to.be.rejectedWith(/status 500/);
     } finally {
       stub.restore();
