@@ -1,5 +1,5 @@
-# Copyright (c) 2025, Salesforce, Inc.
-# SPDX-License-Identifier: Apache-2
+# Copyright (c) 2026, Salesforce, Inc.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,8 @@ def requestSchema(cls: Type[Any]) -> Callable[[F], F]:
     The *cls* argument must be a class with typed fields (e.g. a
     ``TypedDict`` subclass).  At runtime the decorator is a pass-through —
     it returns the original function unchanged.  The schema generator
-    reads the decorator at the AST level to produce OpenAPI ``properties``.
+    (:mod:`agentforce_byoc.schema_utils.generator`) reads the decorator at
+    the AST level to produce OpenAPI ``properties``.
 
     Example::
 
@@ -55,7 +56,8 @@ def responseSchema(cls: Type[Any]) -> Callable[[F], F]:
     The *cls* argument must be a class with typed fields (e.g. a
     ``TypedDict`` subclass).  At runtime the decorator is a pass-through —
     it returns the original function unchanged.  The schema generator
-    reads the decorator at the AST level to produce OpenAPI ``properties``.
+    (:mod:`agentforce_byoc.schema_utils.generator`) reads the decorator at
+    the AST level to produce OpenAPI ``properties``.
 
     Example::
 

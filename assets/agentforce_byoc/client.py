@@ -1,3 +1,18 @@
+# Copyright (c) 2026, Salesforce, Inc.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Client for Agentforce BYOC SDK."""
 
 import os
@@ -53,7 +68,6 @@ class Client:
         >>> from agentforce_byoc import Client
         >>> client = Client()
         >>> response = client.call_llm_generations(
-        ...     tenant_id="core/falcondev-core4/00Dxx0000000000",
         ...     parameter={"prompt": "What is AI?"},
         ... )
 
@@ -116,52 +130,56 @@ class Client:
         """Get the current runtime provider."""
         return self._runtime_provider
 
-    def call_llm_generations(self, tenant_id: str, parameter: Dict[str, Any]) -> Dict[str, Any]:
+    def call_llm_generations(self, parameter: Dict[str, Any]) -> Dict[str, Any]:
         """
         Relay an LLM generations call through the Agentforce Relay API.
 
+        The tenant id, user id, and app context are resolved from the
+        environment (``SFDC_CORE_TENANT_ID`` / ``SFDC_USER_ID`` /
+        ``SFDC_APP_CONTEXT``) injected into the managed sandbox.
+
         Args:
-            tenant_id: Core tenant id (``core/<instance>-<fd>/<org-id>``).
             parameter: Raw request body, passed through to the Relay API as-is.
 
         Returns:
             The Relay API response envelope (``{body, requestId, traceId}``).
 
         Raises:
-            RuntimeError: If the Relay API call fails.
+            RuntimeError: If the Relay API call fails, or the tenant id / user
+                id / app context environment variables are not set.
             ValueError: If the tenant id cannot be resolved to an endpoint.
         """
         logger.debug(
             "Calling Relay (llm)",
-            extra={"tenant_id": tenant_id, "runtime": self._runtime_provider.name},
+            extra={"runtime": self._runtime_provider.name},
         )
-        return self._runtime_provider.relay_gateway_client.call_llm_generations(
-            tenant_id=tenant_id, parameter=parameter
-        )
+        return self._runtime_provider.relay_gateway_client.call_llm_generations(parameter=parameter)
 
-    def call_llm_chat_generations(
-        self, tenant_id: str, parameter: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def call_llm_chat_generations(self, parameter: Dict[str, Any]) -> Dict[str, Any]:
         """
         Relay an LLM chat generations call through the Agentforce Relay API.
 
+        The tenant id, user id, and app context are resolved from the
+        environment (``SFDC_CORE_TENANT_ID`` / ``SFDC_USER_ID`` /
+        ``SFDC_APP_CONTEXT``) injected into the managed sandbox.
+
         Args:
-            tenant_id: Core tenant id (``core/<instance>-<fd>/<org-id>``).
             parameter: Raw request body, passed through to the Relay API as-is.
 
         Returns:
             The Relay API response envelope (``{body, requestId, traceId}``).
 
         Raises:
-            RuntimeError: If the Relay API call fails.
+            RuntimeError: If the Relay API call fails, or the tenant id / user
+                id / app context environment variables are not set.
             ValueError: If the tenant id cannot be resolved to an endpoint.
         """
         logger.debug(
             "Calling Relay (llm_chat)",
-            extra={"tenant_id": tenant_id, "runtime": self._runtime_provider.name},
+            extra={"runtime": self._runtime_provider.name},
         )
         return self._runtime_provider.relay_gateway_client.call_llm_chat_generations(
-            tenant_id=tenant_id, parameter=parameter
+            parameter=parameter
         )
 
 
@@ -189,7 +207,6 @@ def get_client(runtime_provider: Optional[BaseRuntimeProvider] = None) -> Client
         >>> def function(request: dict) -> dict:
         ...     client = get_client()
         ...     response = client.call_llm_generations(
-        ...         tenant_id=request["tenantId"],
         ...         parameter={"prompt": request.get("text", "")},
         ...     )
         ...     return {"response": response}

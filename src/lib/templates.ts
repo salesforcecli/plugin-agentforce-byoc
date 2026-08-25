@@ -23,7 +23,6 @@ logger = get_logger(__name__)
 class ExampleRequest(TypedDict):
     """Request schema - define your input fields here."""
 
-    tenantId: str
     text: str
 
 
@@ -39,15 +38,13 @@ class ExampleResponse(TypedDict):
 @responseSchema(ExampleResponse)
 def function(request: dict) -> dict:
     """Entry point called by the Agentforce BYOC runtime."""
-    tenant_id = request.get("tenantId", "")
     text = request.get("text", "")
-    if not tenant_id or not text:
-        logger.warning("Missing 'tenantId' or 'text' field in request")
+    if not text:
+        logger.warning("Missing 'text' field in request")
         return {"result": "", "status": "error"}
 
     client = get_client()
     relay_response = client.call_llm_chat_generations(
-        tenant_id=tenant_id,
         parameter={
             "messages": [{"role": "user", "content": text}],
             "generation_settings": {"max_tokens": 50},
@@ -58,8 +55,8 @@ def function(request: dict) -> dict:
 
 
 # Invoked by the BYOC runtime: it injects \`byoc_input\` and runs this module.
-# The return value must be emitted on a \`result:\` line for the proxy to capture
-# it into the invoke response.
+# The return value must be emitted on a \`result:\` line for the runtime to
+# capture it into the invoke response.
 import json as _json
 
 _response = function(byoc_input)

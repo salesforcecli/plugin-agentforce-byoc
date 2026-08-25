@@ -1,6 +1,6 @@
 /*
  * HTTP client for the Agentforce BYOC deploy/upload API. Request shapes match
- * the ai-byoc-proxy contract:
+ * the Agentforce BYOC service contract:
  *
  *   1. POST <base>/byoc/upload/request  -> register metadata + presigned S3 URL
  *   2. PUT  <presigned-url>             -> upload the .tar.gz
@@ -15,8 +15,8 @@
 
 import { readFile } from 'node:fs/promises';
 
-// The proxy signs the presigned URL with ContentType "application/gzip"; the PUT
-// must send exactly this or S3 rejects the signature.
+// The service signs the presigned URL with ContentType "application/gzip"; the
+// PUT must send exactly this or S3 rejects the signature.
 const PACKAGE_CONTENT_TYPE = 'application/gzip';
 const DEPLOY_TIMEOUT_MS = 120_000;
 
