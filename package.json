@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "author": "Agentforce BYOC",
   "license": "Apache-2.0",
+  "repository": "salesforcecli/plugin-agentforce-byoc",
+  "homepage": "https://github.com/salesforcecli/plugin-agentforce-byoc",
+  "bugs": "https://github.com/salesforcecli/plugin-agentforce-byoc/issues",
   "type": "module",
   "exports": "./lib/index.js",
   "bin": {
@@ -11,6 +14,9 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@oclif/core": "^4",
