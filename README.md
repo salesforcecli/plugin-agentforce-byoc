@@ -18,7 +18,7 @@ npm install && npm run build
 sf plugins link .     # or run any command via: node bin/run.js agentforce-byoc <cmd>
 ```
 
-Prereqs: **`sf` CLI**, **Node 18+**, and (only for `register`) **Python 3.11+ with PyYAML**.
+Prereqs: **`sf` CLI**, **Node 20+**, and (only for `register`) **Python 3.11+ with PyYAML**.
 
 ---
 
@@ -39,7 +39,7 @@ sf agentforce-byoc init --name my-agent && cd my-agent
 sf agentforce-byoc package
 sf agentforce-byoc deploy --package-name my-agent --package-file my-agent-1.0.tar.gz
 sf agentforce-byoc invoke --package-name my-agent --user-id "$USER" \
-  --input '{"tenantId":"'"$TENANT_ID"'","text":"Say hello in one sentence."}'
+  --input '{"text":"Say hello in one sentence."}'
 ```
 
 That's the loop. Everything above is env-only — the interim auth reads

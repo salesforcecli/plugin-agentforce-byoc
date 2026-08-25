@@ -101,8 +101,8 @@ Edit \`main.py\` — your agent is the \`function(request) -> dict\`.
 
 \`\`\`bash
 sf agentforce-byoc package
-sf agentforce-byoc deploy --package-name {{projectName}} --package-file {{projectName}}-1.0.tar.gz --target-org <alias>
-sf agentforce-byoc deploy-status --package-name {{projectName}} --package-file {{projectName}}-1.0.tar.gz --target-org <alias>
+sf agentforce-byoc deploy --package-name {{projectName}} --package-file {{projectName}}-1.0.tar.gz
+sf agentforce-byoc deploy-status --package-name {{projectName}}
 \`\`\`
 `;
 
