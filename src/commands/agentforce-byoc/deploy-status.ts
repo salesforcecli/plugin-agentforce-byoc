@@ -31,6 +31,10 @@ export default class DeployStatus extends SfCommand<DeployStatusResult> {
       summary: 'Package version (default: 1.0).',
       default: '1.0',
     }),
+    'app-context': Flags.string({
+      summary: 'Calling app label sent to the BYOC service (x-sfdc-app-context); required for tenant-aware routing.',
+      default: 'EinsteinGPT',
+    }),
   };
 
   public async run(): Promise<DeployStatusResult> {
@@ -42,7 +46,7 @@ export default class DeployStatus extends SfCommand<DeployStatusResult> {
     const baseUrl = resolveSfapBaseUrl(tenantId);
 
     this.spinner.start(`Checking ${packageName} v${version}`);
-    const status = await getUploadStatus(baseUrl, tenantId, orgJwt, packageName, version);
+    const status = await getUploadStatus(baseUrl, tenantId, orgJwt, packageName, version, flags['app-context']);
     this.spinner.stop();
 
     const registrationStatus = status.registrationStatus ?? 'unknown';

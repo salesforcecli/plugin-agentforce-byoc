@@ -49,8 +49,8 @@ export default class Deploy extends SfCommand<DeployResult> {
       default: 300,
     }),
     'app-context': Flags.string({
-      summary: 'Calling app label sent to the BYOC service (x-sfdc-app-context).',
-      default: 'AgentforceBYOC',
+      summary: 'Calling app label sent to the BYOC service (x-sfdc-app-context); required for tenant-aware routing.',
+      default: 'EinsteinGPT',
     }),
   };
 

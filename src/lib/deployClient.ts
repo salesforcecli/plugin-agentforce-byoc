@@ -10,7 +10,9 @@
  * presigned URL is minted, so there is no separate "report status" write. Step
  * 3 is read-only and safe to poll (it never 404s).
  *
- * Auth is `Authorization: Bearer <orgJwt>` + the `x-sfdc-core-tenant-id` header.
+ * Auth is `Authorization: Bearer <orgJwt>` + the `x-sfdc-core-tenant-id` header,
+ * plus `x-sfdc-app-context` (required for SFAP tenant-aware routing on the public
+ * paths) and, on the invoke paths, `x-sfdc-user-id`.
  */
 
 import { readFile } from 'node:fs/promises';
@@ -134,12 +136,13 @@ export function getUploadStatus(
   tenantId: string,
   orgJwt: string,
   packageName: string,
-  version: string
+  version: string,
+  appContext: string
 ): Promise<UploadStatusResult> {
   const url = `${baseUrl}/byoc/upload/status?packageName=${encodeURIComponent(
     packageName
   )}&version=${encodeURIComponent(version)}`;
-  return getJson<UploadStatusResult>(url, orgJwt, tenantId);
+  return getJson<UploadStatusResult>(url, orgJwt, tenantId, { appContext });
 }
 
 export type InvokeResult = {
@@ -216,13 +219,22 @@ export function getInvokeStatus(
   );
 }
 
-async function getJson<T>(url: string, orgJwt: string, tenantId: string): Promise<T> {
+async function getJson<T>(
+  url: string,
+  orgJwt: string,
+  tenantId: string,
+  extraHeaders?: { appContext?: string }
+): Promise<T> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${orgJwt}`,
+    'x-sfdc-core-tenant-id': tenantId,
+  };
+  if (extraHeaders?.appContext) {
+    headers['x-sfdc-app-context'] = extraHeaders.appContext;
+  }
   const res = await fetchWithTimeout(url, {
     method: 'GET',
-    headers: {
-      Authorization: `Bearer ${orgJwt}`,
-      'x-sfdc-core-tenant-id': tenantId,
-    },
+    headers,
   });
   const text = await res.text();
   if (!res.ok) {
