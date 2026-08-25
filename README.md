@@ -27,8 +27,10 @@ Prereqs: **`sf` CLI**, **Node 20+**, and (only for `register`) **Python 3.11+ wi
 Set your two auth values once (see [Auth](#auth) for where to get them):
 
 ```bash
-export ORG_JWT_TOKEN=<org-jwt>                     # sfap_api-scoped OrgJWT
-export TENANT_ID=core/falcondeva/00Dfi100001ftjHEAQ  # your tenant (instance picks the SFAP host)
+export ORG_JWT_TOKEN=<org-jwt>                       # sfap_api-scoped OrgJWT
+export TENANT_ID=core/exampleInstance/00Dxx0000000000  # your tenant (org identifier)
+# Targets production by default. Internal/pre-prod only — point at your host:
+# export BYOC_PROXY_URL=https://<env>.api.salesforce.com
 ```
 
 Then this whole block runs as-is — no org login, no `--target-org` needed:
@@ -75,9 +77,16 @@ export TENANT_ID=core/<instance>-<fd>/<org-id>
 ```
 
 Obtain an OrgJWT scoped `sfap_api` for your tenant through your org's standard
-token-issuance flow. `TENANT_ID` is the token's `tnk` claim; its instance
-segment (`falcondev`, `falcondeva`, `falcontest1`, `falconstage`,
-`falconperf2m`) selects the SFAP host automatically.
+token-issuance flow. `TENANT_ID` is the token's `tnk` claim; it identifies the
+org (sent as the `x-sfdc-core-tenant-id` header) but does not select the host.
+
+The plugin targets **production** (`https://api.salesforce.com`) by default. To
+target a different environment, set `BYOC_PROXY_URL` to that environment's SFAP
+host:
+
+```bash
+export BYOC_PROXY_URL=https://<env>.api.salesforce.com
+```
 
 ---
 

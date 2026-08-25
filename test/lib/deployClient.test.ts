@@ -31,8 +31,8 @@ describe('invokeStartPackage', () => {
     const stub = stubFetch({ status: 202, body: { taskId: 'task-123' } });
     try {
       const result = await invokeStartPackage(
-        'https://dev.api.salesforce.com',
-        'core/falcondev-core4/00Dxx',
+        'https://api.salesforce.com',
+        'core/exampleInstance/00Dxx',
         'jwt-abc',
         'my-agent',
         { text: 'hi' },
@@ -43,11 +43,11 @@ describe('invokeStartPackage', () => {
       expect(result).to.deep.equal({ taskId: 'task-123' });
       expect(stub.calls).to.have.length(1);
       const { url, init } = stub.calls[0];
-      expect(url).to.equal('https://dev.api.salesforce.com/byoc/invoke/start/package/my-agent');
+      expect(url).to.equal('https://api.salesforce.com/byoc/invoke/start/package/my-agent');
       expect(init.method).to.equal('POST');
       const headers = init.headers as Record<string, string>;
       expect(headers.Authorization).to.equal('Bearer jwt-abc');
-      expect(headers['x-sfdc-core-tenant-id']).to.equal('core/falcondev-core4/00Dxx');
+      expect(headers['x-sfdc-core-tenant-id']).to.equal('core/exampleInstance/00Dxx');
       expect(headers['x-sfdc-app-context']).to.equal('AgentforceBYOC');
       expect(headers['x-sfdc-user-id']).to.equal('user@example.com');
       expect(JSON.parse(init.body as string)).to.deep.equal({ input: { text: 'hi' }, version: '2.0' });
@@ -59,7 +59,7 @@ describe('invokeStartPackage', () => {
   it('omits version from the body when not provided', async () => {
     const stub = stubFetch({ status: 202, body: { taskId: 't' } });
     try {
-      await invokeStartPackage('https://dev.api.salesforce.com', 'core/falcondev/00D', 'j', 'pkg', {}, undefined, 'AgentforceBYOC', 'u');
+      await invokeStartPackage('https://api.salesforce.com', 'core/exampleInstance/00D', 'j', 'pkg', {}, undefined, 'AgentforceBYOC', 'u');
       expect(JSON.parse(stub.calls[0].init.body as string)).to.deep.equal({ input: {} });
     } finally {
       stub.restore();
@@ -69,8 +69,8 @@ describe('invokeStartPackage', () => {
   it('url-encodes the package name', async () => {
     const stub = stubFetch({ status: 202, body: { taskId: 't' } });
     try {
-      await invokeStartPackage('https://dev.api.salesforce.com', 'core/falcondev/00D', 'j', 'a b/c', {}, undefined, 'AgentforceBYOC', 'u');
-      expect(stub.calls[0].url).to.equal('https://dev.api.salesforce.com/byoc/invoke/start/package/a%20b%2Fc');
+      await invokeStartPackage('https://api.salesforce.com', 'core/exampleInstance/00D', 'j', 'a b/c', {}, undefined, 'AgentforceBYOC', 'u');
+      expect(stub.calls[0].url).to.equal('https://api.salesforce.com/byoc/invoke/start/package/a%20b%2Fc');
     } finally {
       stub.restore();
     }
@@ -80,7 +80,7 @@ describe('invokeStartPackage', () => {
     const stub = stubFetch({ status: 500, body: { detail: 'boom' } });
     try {
       await expect(
-        invokeStartPackage('https://dev.api.salesforce.com', 'core/falcondev/00D', 'j', 'pkg', {}, undefined, 'AgentforceBYOC', 'u')
+        invokeStartPackage('https://api.salesforce.com', 'core/exampleInstance/00D', 'j', 'pkg', {}, undefined, 'AgentforceBYOC', 'u')
       ).to.be.rejectedWith(/status 500/);
     } finally {
       stub.restore();
@@ -94,19 +94,19 @@ describe('getInvokeStatus', () => {
     const stub = stubFetch({ status: 200, body: record });
     try {
       const result = await getInvokeStatus(
-        'https://dev.api.salesforce.com',
-        'core/falcondev-core4/00Dxx',
+        'https://api.salesforce.com',
+        'core/exampleInstance/00Dxx',
         'jwt-abc',
         'task-123'
       );
       expect(result).to.deep.equal(record);
       expect(stub.calls).to.have.length(1);
       const { url, init } = stub.calls[0];
-      expect(url).to.equal('https://dev.api.salesforce.com/byoc/invoke/task-123/status');
+      expect(url).to.equal('https://api.salesforce.com/byoc/invoke/task-123/status');
       expect(init.method).to.equal('GET');
       const headers = init.headers as Record<string, string>;
       expect(headers.Authorization).to.equal('Bearer jwt-abc');
-      expect(headers['x-sfdc-core-tenant-id']).to.equal('core/falcondev-core4/00Dxx');
+      expect(headers['x-sfdc-core-tenant-id']).to.equal('core/exampleInstance/00Dxx');
     } finally {
       stub.restore();
     }
@@ -116,7 +116,7 @@ describe('getInvokeStatus', () => {
     const stub = stubFetch({ status: 404, body: { detail: 'not found' } });
     try {
       await expect(
-        getInvokeStatus('https://dev.api.salesforce.com', 'core/falcondev/00D', 'j', 'nope')
+        getInvokeStatus('https://api.salesforce.com', 'core/exampleInstance/00D', 'j', 'nope')
       ).to.be.rejectedWith(/status 404/);
     } finally {
       stub.restore();
@@ -128,8 +128,8 @@ describe('requestUploadAndRegister', () => {
   it('POSTs metadata to /byoc/upload/request with auth headers and returns the presigned URL', async () => {
     const body = {
       uploadUrl: 'https://s3.example.com/presigned',
-      s3Key: 'core/falcondev-core4/00Dxx/my-agent/1.0/package.tar.gz',
-      tenantId: 'core/falcondev-core4/00Dxx',
+      s3Key: 'core/exampleInstance/00Dxx/my-agent/1.0/package.tar.gz',
+      tenantId: 'core/exampleInstance/00Dxx',
       packageName: 'my-agent',
       version: '1.0',
       status: 'registered',
@@ -137,8 +137,8 @@ describe('requestUploadAndRegister', () => {
     const stub = stubFetch({ status: 200, body });
     try {
       const result = await requestUploadAndRegister(
-        'https://dev.api.salesforce.com',
-        'core/falcondev-core4/00Dxx',
+        'https://api.salesforce.com',
+        'core/exampleInstance/00Dxx',
         'jwt-abc',
         {
           packageName: 'my-agent',
@@ -152,11 +152,11 @@ describe('requestUploadAndRegister', () => {
       expect(result).to.deep.equal(body);
       expect(stub.calls).to.have.length(1);
       const { url, init } = stub.calls[0];
-      expect(url).to.equal('https://dev.api.salesforce.com/byoc/upload/request');
+      expect(url).to.equal('https://api.salesforce.com/byoc/upload/request');
       expect(init.method).to.equal('POST');
       const headers = init.headers as Record<string, string>;
       expect(headers.Authorization).to.equal('Bearer jwt-abc');
-      expect(headers['x-sfdc-core-tenant-id']).to.equal('core/falcondev-core4/00Dxx');
+      expect(headers['x-sfdc-core-tenant-id']).to.equal('core/exampleInstance/00Dxx');
       expect(headers['x-sfdc-app-context']).to.equal('AgentforceBYOC');
       expect(JSON.parse(init.body as string)).to.deep.equal({
         packageName: 'my-agent',
@@ -174,7 +174,7 @@ describe('requestUploadAndRegister', () => {
     const stub = stubFetch({ status: 400, body: { detail: 'bad size' } });
     try {
       await expect(
-        requestUploadAndRegister('https://dev.api.salesforce.com', 'core/falcondev/00D', 'j', {
+        requestUploadAndRegister('https://api.salesforce.com', 'core/exampleInstance/00D', 'j', {
           packageName: 'pkg',
           version: '1.0',
           packageSize: 1,
@@ -192,18 +192,18 @@ describe('requestUploadAndRegister', () => {
 describe('getUploadStatus', () => {
   it('GETs /byoc/upload/status with query + auth headers and returns both statuses', async () => {
     const body = {
-      tenantId: 'core/falcondev-core4/00Dxx',
+      tenantId: 'core/exampleInstance/00Dxx',
       packageName: 'my-agent',
       version: '1.0',
-      s3Key: 'core/falcondev-core4/00Dxx/my-agent/1.0/package.tar.gz',
+      s3Key: 'core/exampleInstance/00Dxx/my-agent/1.0/package.tar.gz',
       registrationStatus: 'registered',
       uploadStatus: 'uploaded',
     };
     const stub = stubFetch({ status: 200, body });
     try {
       const result = await getUploadStatus(
-        'https://dev.api.salesforce.com',
-        'core/falcondev-core4/00Dxx',
+        'https://api.salesforce.com',
+        'core/exampleInstance/00Dxx',
         'jwt-abc',
         'my-agent',
         '1.0'
@@ -212,12 +212,12 @@ describe('getUploadStatus', () => {
       expect(stub.calls).to.have.length(1);
       const { url, init } = stub.calls[0];
       expect(url).to.equal(
-        'https://dev.api.salesforce.com/byoc/upload/status?packageName=my-agent&version=1.0'
+        'https://api.salesforce.com/byoc/upload/status?packageName=my-agent&version=1.0'
       );
       expect(init.method).to.equal('GET');
       const headers = init.headers as Record<string, string>;
       expect(headers.Authorization).to.equal('Bearer jwt-abc');
-      expect(headers['x-sfdc-core-tenant-id']).to.equal('core/falcondev-core4/00Dxx');
+      expect(headers['x-sfdc-core-tenant-id']).to.equal('core/exampleInstance/00Dxx');
     } finally {
       stub.restore();
     }
@@ -226,9 +226,9 @@ describe('getUploadStatus', () => {
   it('url-encodes the package name and version', async () => {
     const stub = stubFetch({ status: 200, body: {} });
     try {
-      await getUploadStatus('https://dev.api.salesforce.com', 'core/falcondev/00D', 'j', 'a b', '1.0-beta+1');
+      await getUploadStatus('https://api.salesforce.com', 'core/exampleInstance/00D', 'j', 'a b', '1.0-beta+1');
       expect(stub.calls[0].url).to.equal(
-        'https://dev.api.salesforce.com/byoc/upload/status?packageName=a%20b&version=1.0-beta%2B1'
+        'https://api.salesforce.com/byoc/upload/status?packageName=a%20b&version=1.0-beta%2B1'
       );
     } finally {
       stub.restore();
@@ -239,7 +239,7 @@ describe('getUploadStatus', () => {
     const stub = stubFetch({ status: 500, body: { detail: 'boom' } });
     try {
       await expect(
-        getUploadStatus('https://dev.api.salesforce.com', 'core/falcondev/00D', 'j', 'pkg', '1.0')
+        getUploadStatus('https://api.salesforce.com', 'core/exampleInstance/00D', 'j', 'pkg', '1.0')
       ).to.be.rejectedWith(/status 500/);
     } finally {
       stub.restore();

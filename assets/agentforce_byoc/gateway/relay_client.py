@@ -37,9 +37,8 @@ APP_CONTEXT_ENV_VAR = "SFDC_APP_CONTEXT"
 
 # Environment variable carrying the caller's core tenant id
 # (``core/<instance>-<fd>/<org-id>``), injected into the managed sandbox by the
-# Agentforce runtime. It is forwarded as the x-sfdc-core-tenant-id header and
-# used to resolve the relay endpoint URL, so callers no longer thread the tenant
-# id through each relay call.
+# Agentforce runtime. It is forwarded as the x-sfdc-core-tenant-id header, so
+# callers no longer thread the tenant id through each relay call.
 CORE_TENANT_ID_ENV_VAR = "SFDC_CORE_TENANT_ID"
 
 # Environment variable carrying the caller's user id, injected into the managed
@@ -66,27 +65,21 @@ RELAY_FUNCTION_LLM_CHAT = "llm_chat"
 # path (``<base>/byoc/service``). For the relay it is used VERBATIM (see
 # :func:`resolve_relay_url`) — the ``/byoc/service`` suffix is NOT re-appended,
 # so an injected ``.../byoc/service`` value does not become
-# ``.../byoc/service/byoc/service``. Takes precedence over deriving the URL
-# from the tenant id. (The deploy CLI runs locally, not in the managed sandbox,
-# and treats a user-exported value as a base to which it appends its own
+# ``.../byoc/service/byoc/service``. Takes precedence over the production
+# default. (The deploy CLI runs locally, not in the managed sandbox, and treats
+# a user-exported value as a base to which it appends its own
 # ``/byoc/upload/...`` path — see :func:`resolve_sfap_base_url`.)
 PROXY_URL_ENV_VAR = "BYOC_PROXY_URL"
 
-# Relay endpoint path appended to the tenant-derived base URL (only on the
-# fallback path; when BYOC_PROXY_URL is set it already includes this).
+# Relay endpoint path appended to the base URL (only on the default path; when
+# BYOC_PROXY_URL is set it already includes this).
 _RELAY_PATH = "/byoc/service"
 
-# Maps the Salesforce instance token (the part of the tenant id before any
-# ``-<fd>`` suffix) to its Agentforce API base URL. The FD segment is not used.
-# This is the fallback used only when BYOC_PROXY_URL is not set.
-_INSTANCE_URL_MAP: Dict[str, str] = {
-    "falcondev": "https://dev.api.salesforce.com",
-    "falcondeva": "https://dev.api.salesforce.com",
-    "falcontest1": "https://test.api.salesforce.com",
-    "falconstage": "https://stage.api.salesforce.com",
-    "falconperf2m": "https://perf.api.salesforce.com",
-    "prod": "https://api.salesforce.com",
-}
+# Default Agentforce BYOC API base URL, used when BYOC_PROXY_URL is not set.
+# Production is the only public environment, so it is the default; internal
+# developers targeting a pre-production environment point BYOC_PROXY_URL at that
+# environment's host instead.
+_DEFAULT_SFAP_BASE_URL = "https://api.salesforce.com"
 
 # Relay timeout (seconds) for the outbound POST.
 _RELAY_TIMEOUT_S = 60
@@ -98,29 +91,31 @@ def resolve_sfap_base_url(tenant_id: str) -> str:
 
     Prefers the ``BYOC_PROXY_URL`` environment variable: when set, it is
     returned verbatim (minus any trailing slash) and the tenant id is ignored.
-    Otherwise falls back to deriving the URL from the core tenant id.
+    Otherwise returns the production default (``https://api.salesforce.com``);
+    internal developers targeting a pre-production environment set
+    ``BYOC_PROXY_URL`` to that environment's host.
 
-    This returns only the base (e.g. ``https://dev.api.salesforce.com``); the
+    This returns only the base (e.g. ``https://api.salesforce.com``); the
     caller appends its own endpoint path. The deploy CLI uses it that way
     (``<base>/byoc/upload/request`` etc.). The relay does NOT use this directly
     — it goes through :func:`resolve_relay_url`, which handles the fact that the
     injected ``BYOC_PROXY_URL`` already includes ``/byoc/service``.
 
     Tenant ids follow ``core/<instance>[-<fd>]/<org-id>`` (e.g.
-    ``core/falcondev-core4/00Dxx...``). On the fallback path, only the instance
-    token (before any ``-<fd>`` suffix) determines the URL; the FD segment is
-    ignored.
+    ``core/exampleInstance/00Dxx...``). The tenant id is validated for shape
+    because it is forwarded as the ``x-sfdc-core-tenant-id`` header, but it no
+    longer selects the host.
 
     Args:
-        tenant_id: The core tenant id (used only when ``BYOC_PROXY_URL`` is
-            unset).
+        tenant_id: The core tenant id (validated for shape when
+            ``BYOC_PROXY_URL`` is unset; not used to select the host).
 
     Returns:
         The base URL (no trailing slash, no endpoint path).
 
     Raises:
         ValueError: If ``BYOC_PROXY_URL`` is unset and the tenant id is
-            malformed or its instance does not map to a known environment.
+            malformed.
     """
     proxy_url = os.getenv(PROXY_URL_ENV_VAR)
     if proxy_url:
@@ -135,14 +130,7 @@ def resolve_sfap_base_url(tenant_id: str) -> str:
             f"Malformed tenant id {tenant_id!r}; expected " "'core/<instance>-<fd>/<org-id>'."
         )
 
-    instance_token = parts[1].split("-", 1)[0]
-    base_url = _INSTANCE_URL_MAP.get(instance_token)
-    if base_url is None:
-        raise ValueError(
-            f"Unknown instance {instance_token!r} in tenant id {tenant_id!r}; "
-            f"expected one of {sorted(_INSTANCE_URL_MAP)}."
-        )
-    return base_url
+    return _DEFAULT_SFAP_BASE_URL
 
 
 def resolve_relay_url(tenant_id: str) -> str:
@@ -155,18 +143,18 @@ def resolve_relay_url(tenant_id: str) -> str:
     managed sandbox already pointing at the relay path. Appending would produce
     ``.../byoc/service/byoc/service`` and a 404.
 
-    When ``BYOC_PROXY_URL`` is unset, the base URL is derived from the tenant id
+    When ``BYOC_PROXY_URL`` is unset, the base URL is the production default
     (see :func:`resolve_sfap_base_url`) and ``/byoc/service`` is appended.
 
     Args:
-        tenant_id: The core tenant id (used only on the fallback path).
+        tenant_id: The core tenant id (validated for shape on the default path).
 
     Returns:
         The full relay endpoint URL (no trailing slash).
 
     Raises:
         ValueError: If ``BYOC_PROXY_URL`` is unset and the tenant id is
-            malformed or its instance does not map to a known environment.
+            malformed.
     """
     proxy_url = os.getenv(PROXY_URL_ENV_VAR)
     if proxy_url:
@@ -185,7 +173,7 @@ class AgentforceRelayGatewayClient(BaseRelayGatewayClient):
     ``SFDC_FEATURE_ID`` / ``SFDC_TRACE_ID`` when injected. The Relay API endpoint
     is resolved by :func:`resolve_relay_url`: ``BYOC_PROXY_URL`` verbatim when
     set (the runtime injects it already pointing at ``/byoc/service``), else the
-    tenant-derived base with ``/byoc/service`` appended.
+    production default with ``/byoc/service`` appended.
 
     This is the single shared client for all Relay functions. To add a new
     relay function, add a thin method that calls :meth:`_relay` with the
@@ -226,8 +214,8 @@ class AgentforceRelayGatewayClient(BaseRelayGatewayClient):
         Resolve the core tenant id.
 
         Reads ``SFDC_CORE_TENANT_ID`` from the environment (injected by the
-        Agentforce runtime). It is used to resolve the endpoint URL for your
-        org and is forwarded as the ``x-sfdc-core-tenant-id`` header.
+        Agentforce runtime). It is forwarded as the ``x-sfdc-core-tenant-id``
+        header.
 
         Raises:
             RuntimeError: If the variable is not set.
@@ -332,7 +320,7 @@ class AgentforceRelayGatewayClient(BaseRelayGatewayClient):
 
         The endpoint URL comes from :func:`resolve_relay_url`: ``BYOC_PROXY_URL``
         verbatim when set (it already includes ``/byoc/service``), else the
-        tenant-derived base with ``/byoc/service`` appended. The tenant id is
+        production default with ``/byoc/service`` appended. The tenant id is
         sent as the ``x-sfdc-core-tenant-id`` header. The org JWT
         is sent as a bearer token; the app context and user id are resolved
         from the injected environment and sent as the ``x-sfdc-app-context`` /

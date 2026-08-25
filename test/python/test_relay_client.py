@@ -22,11 +22,14 @@ from agentforce_byoc.gateway.relay_client import (  # noqa: E402
     APP_CONTEXT_ENV_VAR,
     CORE_TENANT_ID_ENV_VAR,
     ORG_JWT_ENV_VAR,
+    PROXY_URL_ENV_VAR,
     USER_ID_ENV_VAR,
     AgentforceRelayGatewayClient,
+    resolve_relay_url,
+    resolve_sfap_base_url,
 )
 
-VALID_TENANT = "core/falcondev-core4/00Dxx0000000000"
+VALID_TENANT = "core/exampleInstance/00Dxx0000000000"
 _OK_RESPONSE = json.dumps({"body": {}, "requestId": "r", "traceId": "t"})
 
 
@@ -64,6 +67,32 @@ class RelayClientHeaderTests(unittest.TestCase):
         with mock.patch.object(_http, "post_json", return_value=(200, _OK_RESPONSE)):
             with self.assertRaisesRegex(RuntimeError, APP_CONTEXT_ENV_VAR):
                 AgentforceRelayGatewayClient().call_llm_generations({"prompt": "hi"})
+
+
+class UrlResolutionTests(unittest.TestCase):
+    """The host defaults to production; BYOC_PROXY_URL overrides it."""
+
+    def setUp(self):
+        # Guarantee the default path unless a test opts into an override.
+        self._saved = os.environ.pop(PROXY_URL_ENV_VAR, None)
+
+        def _restore():
+            if self._saved is not None:
+                os.environ[PROXY_URL_ENV_VAR] = self._saved
+
+        self.addCleanup(_restore)
+
+    def test_base_url_defaults_to_prod(self):
+        self.assertEqual(resolve_sfap_base_url(VALID_TENANT), "https://api.salesforce.com")
+
+    def test_relay_url_defaults_to_prod(self):
+        self.assertEqual(
+            resolve_relay_url(VALID_TENANT), "https://api.salesforce.com/byoc/service"
+        )
+
+    def test_proxy_url_overrides_and_strips_trailing_slash(self):
+        os.environ[PROXY_URL_ENV_VAR] = "https://custom.proxy.example/"
+        self.assertEqual(resolve_sfap_base_url(VALID_TENANT), "https://custom.proxy.example")
 
 
 if __name__ == "__main__":
