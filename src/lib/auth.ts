@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, Salesforce, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
  * Auth bridge: turn a Salesforce CLI org connection into the credentials the
  * BYOC SFAP endpoints require — an OrgJWT bearer token and a core tenant id.
  *

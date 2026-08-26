@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, Salesforce, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { readFile, access } from 'node:fs/promises';
 import path from 'node:path';
 import { expect } from 'chai';

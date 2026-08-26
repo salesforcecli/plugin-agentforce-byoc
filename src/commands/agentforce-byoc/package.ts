@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, Salesforce, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import path from 'node:path';
 import { SfCommand, Flags } from '@salesforce/sf-plugins-core';
 import { buildPackage } from '../../lib/packager.js';

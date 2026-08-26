@@ -78,5 +78,11 @@
     "test": "mocha --forbid-only \"test/**/*.test.ts\"",
     "test:python": "python3 -m unittest discover -s test/python -v",
     "version": "oclif readme"
+  },
+  "homepage": "https://github.com/salesforcecli/plugin-agentforce-byoc",
+  "repository": "salesforcecli/plugin-agentforce-byoc",
+  "bugs": "https://github.com/salesforcecli/plugin-agentforce-byoc/issues",
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, Salesforce, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
  * Copy the bundled Agentforce BYOC runtime (shipped in the plugin's assets/)
  * into a scaffolded project, so the deployed package can `import agentforce_byoc`
  * in the sandbox. Interim until the SDK is on a public index, at which point the

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, Salesforce, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { expect } from 'chai';
 import { renderScaffold } from '../../lib/lib/templates.js';
 

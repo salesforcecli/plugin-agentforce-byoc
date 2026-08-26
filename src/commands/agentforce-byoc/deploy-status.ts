@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, Salesforce, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { SfCommand, Flags } from '@salesforce/sf-plugins-core';
 import { resolveAuth } from '../../lib/auth.js';
 import { resolveSfapBaseUrl } from '../../lib/sfap.js';

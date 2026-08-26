@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, Salesforce, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
  * Project scaffold templates for `init`, shipped as plugin assets (pure TS, no
  * Python at install time). `{{projectName}}` is substituted at scaffold time.
  *

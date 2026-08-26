@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, Salesforce, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
  * HTTP client for the Agentforce BYOC deploy/upload API. Request shapes match
  * the Agentforce BYOC service contract:
  *
@@ -12,7 +17,7 @@
  *
  * Auth is `Authorization: Bearer <orgJwt>` + the `x-sfdc-core-tenant-id` header,
  * plus `x-sfdc-app-context` (required for SFAP tenant-aware routing on the public
- * paths) and, on the invoke paths, `x-sfdc-user-id`.
+ * paths).
  */
 
 import { readFile } from 'node:fs/promises';
@@ -51,7 +56,7 @@ async function postJson<T>(
   body: unknown,
   orgJwt: string,
   tenantId: string,
-  extraHeaders?: { appContext?: string; userId?: string }
+  extraHeaders?: { appContext?: string }
 ): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -60,9 +65,6 @@ async function postJson<T>(
   };
   if (extraHeaders?.appContext) {
     headers['x-sfdc-app-context'] = extraHeaders.appContext;
-  }
-  if (extraHeaders?.userId) {
-    headers['x-sfdc-user-id'] = extraHeaders.userId;
   }
   const res = await fetchWithTimeout(url, {
     method: 'POST',
@@ -143,80 +145,6 @@ export function getUploadStatus(
     packageName
   )}&version=${encodeURIComponent(version)}`;
   return getJson<UploadStatusResult>(url, orgJwt, tenantId, { appContext });
-}
-
-export type InvokeResult = {
-  taskId?: string;
-  sessionId?: string;
-  status?: string;
-  output?: string;
-  stderr?: string;
-  exitCode?: number;
-  result?: unknown;
-  error?: unknown;
-  [key: string]: unknown;
-};
-
-/** Synchronously execute a deployed package and return its result. */
-export function invokePackage(
-  baseUrl: string,
-  tenantId: string,
-  orgJwt: string,
-  packageName: string,
-  input: Record<string, unknown>,
-  version: string | undefined,
-  appContext: string,
-  userId: string
-): Promise<InvokeResult> {
-  const body: Record<string, unknown> = { input };
-  if (version) {
-    body.version = version;
-  }
-  return postJson<InvokeResult>(
-    `${baseUrl}/byoc/invoke/run/package/${encodeURIComponent(packageName)}`,
-    body,
-    orgJwt,
-    tenantId,
-    { appContext, userId }
-  );
-}
-
-/** Submit a deployed package asynchronously; returns { taskId } (HTTP 202). */
-export function invokeStartPackage(
-  baseUrl: string,
-  tenantId: string,
-  orgJwt: string,
-  packageName: string,
-  input: Record<string, unknown>,
-  version: string | undefined,
-  appContext: string,
-  userId: string
-): Promise<{ taskId: string }> {
-  const body: Record<string, unknown> = { input };
-  if (version) {
-    body.version = version;
-  }
-  return postJson<{ taskId: string }>(
-    `${baseUrl}/byoc/invoke/start/package/${encodeURIComponent(packageName)}`,
-    body,
-    orgJwt,
-    tenantId,
-    { appContext, userId }
-  );
-}
-
-/** Poll an async task's status/result. */
-export function getInvokeStatus(
-  baseUrl: string,
-  tenantId: string,
-  orgJwt: string,
-  taskId: string
-): Promise<InvokeResult> {
-  return getJson<InvokeResult>(
-    `${baseUrl}/byoc/invoke/${encodeURIComponent(taskId)}/status`,
-    orgJwt,
-    tenantId
-  );
 }
 
 async function getJson<T>(

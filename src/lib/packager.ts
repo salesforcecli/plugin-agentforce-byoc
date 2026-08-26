@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, Salesforce, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
  * Build a deployable .tar.gz for a BYOC project. Mirrors the Python SDK's
  * `agentforce zip`: includes the function files plus the vendored
  * `agentforce_byoc/` runtime, gzip-compressed (the upload contract expects

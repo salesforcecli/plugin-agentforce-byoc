@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, Salesforce, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { stat } from 'node:fs/promises';
 import { SfCommand, Flags } from '@salesforce/sf-plugins-core';
 import { resolveAuth } from '../../lib/auth.js';
@@ -81,7 +86,7 @@ export default class Deploy extends SfCommand<DeployResult> {
     this.spinner.stop();
 
     this.log(`Deployed ${packageName} v${version} (s3Key: ${registered.s3Key})`);
-    this.log(`\nNext: sf agentforce-byoc invoke --package-name ${packageName}`);
+    this.log(`\nNext: sf agentforce-byoc register --package ${packageName} --namespace <ns> --target-org <org>`);
 
     return { s3Key: registered.s3Key, packageName, version, status: registered.status };
   }

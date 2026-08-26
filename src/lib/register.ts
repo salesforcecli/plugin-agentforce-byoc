@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, Salesforce, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
  * Register a BYOC function as a discoverable Code Extension action in the org's
  * API catalog. Three steps:
  *

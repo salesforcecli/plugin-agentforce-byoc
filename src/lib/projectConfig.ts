@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, Salesforce, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
  * Read a BYOC project's config.json. The SDK's config carries `entryPoint`;
  * `name`/`version` may also be present and fall back to sensible defaults.
  */

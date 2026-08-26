@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, Salesforce, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { SfCommand, Flags } from '@salesforce/sf-plugins-core';

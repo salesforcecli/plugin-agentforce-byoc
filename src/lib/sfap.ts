@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, Salesforce, Inc.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
  * SFAP base-URL resolution.
  *
  * The BYOC service is reached through the production SFAP edge
