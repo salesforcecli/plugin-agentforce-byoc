@@ -531,6 +531,12 @@ def generate_openapi(
             "description": "API generated from Python function schema",
             "version": "1.0.0",
         },
+        # Declares the base server path for the generated operations so each
+        # operation path is prefixed with "/codeExtension". This prefix is
+        # required for a Code Extension callout to route to its execution
+        # endpoint; without it the callout resolves to a bare operation path
+        # and is not routed.
+        "servers": [{"url": "/codeExtension"}],
         "paths": {},
     }
 
