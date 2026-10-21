@@ -9,6 +9,8 @@ import path from 'node:path';
 import { expect } from 'chai';
 import {
   firstOperationId,
+  commandOutput,
+  isSuccessResponseKey,
   buildEsrMetaXml,
   writeEsrProject,
   generatorScriptPath,
@@ -35,6 +37,31 @@ describe('firstOperationId', () => {
 
   it('returns undefined when no operationId is present', () => {
     expect(firstOperationId('openapi: 3.0.0\npaths: {}\n')).to.equal(undefined);
+  });
+});
+
+describe('commandOutput', () => {
+  it('keeps the stdout error when stderr only has a notice', () => {
+    const out = commandOutput({ code: 1, stdout: 'Component failure: in use\n', stderr: 'Warning: update available\n' });
+    expect(out).to.equal('Component failure: in use\nWarning: update available');
+  });
+
+  it('omits an empty stream', () => {
+    expect(commandOutput({ code: 1, stdout: '', stderr: 'Traceback ...' })).to.equal('Traceback ...');
+  });
+});
+
+describe('isSuccessResponseKey', () => {
+  it('accepts 2xx codes, 2XX, and default', () => {
+    for (const key of ['200', '201', '299', '2XX', 'default']) {
+      expect(isSuccessResponseKey(key), key).to.equal(true);
+    }
+  });
+
+  it('rejects non-success codes and arbitrary strings', () => {
+    for (const key of ['400', '500', '2xx', 'ok', '', '2000']) {
+      expect(isSuccessResponseKey(key), key).to.equal(false);
+    }
   });
 });
 
@@ -123,10 +150,10 @@ describe('generateOpenApiYaml', () => {
     const yaml = await generate();
     expect(yaml).to.match(/'200':\n\s+description: Successful response/);
     expect(yaml).to.match(
-      /schema:\n\s+type: object\n\s+properties:\n\s+attributes:\n\s+type: object\n\s+properties:\n\s+result:\n\s+\$ref: '#\/components\/schemas\/AddNumbersResult'/
+      /schema:\n\s+type: object\n\s+properties:\n\s+attributes:\n\s+type: object\n\s+properties:\n\s+result:\n\s+\$ref: '#\/components\/schemas\/addNumbersResult'/
     );
     expect(yaml).to.match(
-      /components:\n\s+schemas:\n\s+AddNumbersResult:\n\s+type: object\n\s+properties:\n\s+result:\n\s+type: number/
+      /components:\n\s+schemas:\n\s+addNumbersResult:\n\s+type: object\n\s+properties:\n\s+result:\n\s+type: number/
     );
   });
 
@@ -134,5 +161,15 @@ describe('generateOpenApiYaml', () => {
     const yaml = await generate('default');
     expect(yaml).to.match(/\n\s+default:\n\s+description: Successful response/);
     expect(yaml).to.not.contain("'200':");
+  });
+
+  it('rejects a success response key that is not a 2xx code, 2XX, or default', async () => {
+    let error: Error | undefined;
+    try {
+      await generate('400');
+    } catch (e) {
+      error = e as Error;
+    }
+    expect(error?.message).to.contain("Invalid success response key '400'");
   });
 });

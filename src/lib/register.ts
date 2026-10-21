@@ -83,9 +83,25 @@ export async function generateOpenApiYaml(args: {
     );
   }
   if (result.code !== 0) {
-    throw new Error(`Schema generation failed:\n${result.stderr || result.stdout}`);
+    throw new Error(`Schema generation failed:\n${commandOutput(result)}`);
   }
   return result.stdout;
+}
+
+/**
+ * Both streams of a failed command. Either can hold the real error (`sf` writes
+ * deploy failures to stdout and update notices to stderr), so neither is dropped.
+ */
+export function commandOutput(result: RunResult): string {
+  return [result.stdout, result.stderr]
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .join('\n');
+}
+
+/** True for OpenAPI response keys that denote success: a 2xx code, `2XX`, or `default`. */
+export function isSuccessResponseKey(key: string): boolean {
+  return /^(2\d\d|2XX|default)$/.test(key);
 }
 
 /** Extract the first operationId from a generated OpenAPI YAML (for the ESR operation name). */

@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import re
 import sys
 from typing import (
     Any,
@@ -491,17 +492,32 @@ def _build_response_schema(
     return python_type_to_openapi(type_source)
 
 
+_SUCCESS_RESPONSE_KEY = re.compile(r"^(2\d\d|2XX|default)$")
+
+
+def _validate_success_response_key(key: str) -> None:
+    """Accept only OpenAPI response keys that denote success: a 2xx code, ``2XX``, or ``default``."""
+    if not _SUCCESS_RESPONSE_KEY.match(key):
+        raise ValueError(
+            f"Invalid success response key '{key}': use a 2xx status code, '2XX', or 'default'"
+        )
+
+
 def _result_schema_name(function_name: str) -> str:
-    """Component name for a function's output schema, e.g. ``AddNumbersResult``."""
-    return function_name[:1].upper() + function_name[1:] + "Result"
+    """Component name for a function's output schema, e.g. ``addNumbersResult``.
+
+    Function names are unique within a module, so the component names are too.
+    """
+    return function_name + "Result"
 
 
 def _wrap_gateway_envelope(result_ref: str) -> Dict[str, Any]:
     """Wrap a reference to the function result schema in the AI Gateway envelope.
 
-    The AI Gateway returns ``{"attributes": {"result": <function output>}}``
-    (FunctionExecutionAction.wrapAiCloudResult) and Core does not unwrap it, so the
-    declared response must match or every output field resolves to null.
+    The AI Gateway returns a Code Extension's output as
+    ``{"attributes": {"result": <function output>}}``, and the caller receives that
+    body unchanged, so the declared response must match or every output field
+    resolves to null.
     """
     return {
         "type": "object",
@@ -553,6 +569,7 @@ def generate_openapi(
     """
     if not schemas:
         raise ValueError("No @entry_func functions found in the input file")
+    _validate_success_response_key(success_response_key)
 
     first = schemas[0]
     spec: Dict[str, Any] = {

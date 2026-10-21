@@ -10,6 +10,8 @@ import { readProjectConfig } from '../../lib/projectConfig.js';
 import {
   generateOpenApiYaml,
   firstOperationId,
+  commandOutput,
+  isSuccessResponseKey,
   writeEsrProject,
   runCommand,
 } from '../../lib/register.js';
@@ -73,6 +75,12 @@ export default class Register extends SfCommand<RegisterResult> {
     const { flags } = await this.parse(Register);
     const projectDir = flags['project-dir'];
     const registrationName = flags['registration-name'] ?? toDeveloperName(flags.package);
+    const successResponseKey = flags['success-response-key'];
+    if (successResponseKey !== undefined && !isSuccessResponseKey(successResponseKey)) {
+      throw new Error(
+        `Invalid --success-response-key '${successResponseKey}': use a 2xx status code, '2XX', or 'default'.`
+      );
+    }
 
     const config = await readProjectConfig(projectDir);
     const entryPointPath = path.join(projectDir, config.entryPoint);
@@ -88,7 +96,7 @@ export default class Register extends SfCommand<RegisterResult> {
       namespace: flags.namespace,
       packageName: flags.package,
       python: flags.python,
-      successResponseKey: flags['success-response-key'],
+      successResponseKey,
     });
     this.spinner.stop();
 
@@ -123,7 +131,7 @@ export default class Register extends SfCommand<RegisterResult> {
     this.spinner.stop();
 
     if (result.code !== 0) {
-      throw new Error(`sf project deploy failed:\n${result.stderr || result.stdout}`);
+      throw new Error(`sf project deploy failed:\n${commandOutput(result)}`);
     }
 
     this.log(`Registered '${registrationName}' (operation: ${operationId}) in the org.`);
