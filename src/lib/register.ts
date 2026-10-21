@@ -60,8 +60,9 @@ export async function generateOpenApiYaml(args: {
   namespace: string;
   packageName: string;
   python: string;
+  successResponseKey?: string;
 }): Promise<string> {
-  const { entryPointPath, namespace, packageName, python } = args;
+  const { entryPointPath, namespace, packageName, python, successResponseKey } = args;
   let result: RunResult;
   try {
     result = await runCommand(python, [
@@ -71,6 +72,7 @@ export async function generateOpenApiYaml(args: {
       namespace,
       '--package',
       packageName,
+      ...(successResponseKey ? ['--success-response-key', successResponseKey] : []),
     ]);
   } catch (e) {
     throw new Error(

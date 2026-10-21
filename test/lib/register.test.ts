@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { readFile, access } from 'node:fs/promises';
+import { readFile, access, mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { expect } from 'chai';
 import {
@@ -11,6 +12,7 @@ import {
   buildEsrMetaXml,
   writeEsrProject,
   generatorScriptPath,
+  generateOpenApiYaml,
 } from '../../lib/lib/register.js';
 
 const SAMPLE_OPENAPI = `openapi: 3.0.0
@@ -79,5 +81,55 @@ describe('generatorScriptPath', () => {
     );
     // The vendored file must actually be present for the register command to work.
     await access(p);
+  });
+});
+
+const SAMPLE_MAIN_PY = `from typing import TypedDict
+from agentforce_byoc.schema_utils import entry_func, requestSchema, responseSchema
+
+
+class AddRequest(TypedDict):
+    a: float
+    b: float
+
+
+class AddResponse(TypedDict):
+    result: float
+
+
+@entry_func
+@requestSchema(AddRequest)
+@responseSchema(AddResponse)
+def addNumbers(request: dict) -> dict:
+    """Add two numbers."""
+    return {"result": request["a"] + request["b"]}
+`;
+
+describe('generateOpenApiYaml', () => {
+  async function generate(successResponseKey?: string): Promise<string> {
+    const dir = await mkdtemp(path.join(tmpdir(), 'byoc-gen-test-'));
+    const entryPointPath = path.join(dir, 'main.py');
+    await writeFile(entryPointPath, SAMPLE_MAIN_PY);
+    return generateOpenApiYaml({
+      entryPointPath,
+      namespace: 'ns',
+      packageName: 'pkg',
+      python: 'python3',
+      successResponseKey,
+    });
+  }
+
+  it('wraps the result in the AI Gateway attributes.result envelope under 200', async () => {
+    const yaml = await generate();
+    expect(yaml).to.match(/'200':\n\s+description: Successful response/);
+    expect(yaml).to.match(
+      /schema:\n\s+type: object\n\s+properties:\n\s+attributes:\n\s+type: object\n\s+properties:\n\s+result:\n\s+type: object\n\s+properties:\n\s+result:\n\s+type: number/
+    );
+  });
+
+  it('emits the result under the requested success response key', async () => {
+    const yaml = await generate('default');
+    expect(yaml).to.match(/\n\s+default:\n\s+description: Successful response/);
+    expect(yaml).to.not.contain("'200':");
   });
 });

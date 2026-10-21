@@ -58,6 +58,11 @@ export default class Register extends SfCommand<RegisterResult> {
       summary: 'Python interpreter to run the schema generator (default: python3).',
       default: 'python3',
     }),
+    'success-response-key': Flags.string({
+      summary:
+        "OpenAPI response key for the function result (default: 200). Use 'default' so the action " +
+        'output is named defaultResponse, which Prompt Builder merge fields can reference.',
+    }),
     'dry-run': Flags.boolean({
       summary: 'Generate and template the metadata but do not deploy to the org.',
       default: false,
@@ -83,6 +88,7 @@ export default class Register extends SfCommand<RegisterResult> {
       namespace: flags.namespace,
       packageName: flags.package,
       python: flags.python,
+      successResponseKey: flags['success-response-key'],
     });
     this.spinner.stop();
 
