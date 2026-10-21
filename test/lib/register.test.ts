@@ -123,7 +123,10 @@ describe('generateOpenApiYaml', () => {
     const yaml = await generate();
     expect(yaml).to.match(/'200':\n\s+description: Successful response/);
     expect(yaml).to.match(
-      /schema:\n\s+type: object\n\s+properties:\n\s+attributes:\n\s+type: object\n\s+properties:\n\s+result:\n\s+type: object\n\s+properties:\n\s+result:\n\s+type: number/
+      /schema:\n\s+type: object\n\s+properties:\n\s+attributes:\n\s+type: object\n\s+properties:\n\s+result:\n\s+\$ref: '#\/components\/schemas\/AddNumbersResult'/
+    );
+    expect(yaml).to.match(
+      /components:\n\s+schemas:\n\s+AddNumbersResult:\n\s+type: object\n\s+properties:\n\s+result:\n\s+type: number/
     );
   });
 

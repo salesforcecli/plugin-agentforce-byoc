@@ -491,8 +491,13 @@ def _build_response_schema(
     return python_type_to_openapi(type_source)
 
 
-def _wrap_gateway_envelope(result_schema: Dict[str, Any]) -> Dict[str, Any]:
-    """Wrap the function result schema in the AI Gateway response envelope.
+def _result_schema_name(function_name: str) -> str:
+    """Component name for a function's output schema, e.g. ``AddNumbersResult``."""
+    return function_name[:1].upper() + function_name[1:] + "Result"
+
+
+def _wrap_gateway_envelope(result_ref: str) -> Dict[str, Any]:
+    """Wrap a reference to the function result schema in the AI Gateway envelope.
 
     The AI Gateway returns ``{"attributes": {"result": <function output>}}``
     (FunctionExecutionAction.wrapAiCloudResult) and Core does not unwrap it, so the
@@ -503,7 +508,7 @@ def _wrap_gateway_envelope(result_schema: Dict[str, Any]) -> Dict[str, Any]:
         "properties": {
             "attributes": {
                 "type": "object",
-                "properties": {"result": result_schema},
+                "properties": {"result": {"$ref": result_ref}},
             }
         },
     }
@@ -542,7 +547,7 @@ def generate_openapi(
 
     *success_response_key* is the OpenAPI response key for the function result.
     External Services names the action output after it, so ``"default"`` yields an
-    output called ``defaultResponse`` that Prompt Builder merge fields can reference
+    output called ``defaultExc`` that Prompt Builder merge fields can reference
     (``{{CodeExtension.<action>.200}}`` is unresolvable: Jinja reads ``.200`` as an
     integer subscript).
     """
@@ -566,7 +571,10 @@ def generate_openapi(
         "paths": {},
     }
 
+    component_schemas: Dict[str, Any] = {}
     for schema in schemas:
+        result_name = _result_schema_name(schema.name)
+        component_schemas[result_name] = _build_response_schema(schema, schema.class_map)
         summary = (schema.docstring or "").split("\n")[0].rstrip(".")
         path_op: Dict[str, Any] = {
             "summary": summary,
@@ -591,7 +599,7 @@ def generate_openapi(
                     "content": {
                         "application/json": {
                             "schema": _wrap_gateway_envelope(
-                                _build_response_schema(schema, schema.class_map)
+                                f"#/components/schemas/{result_name}"
                             ),
                         }
                     },
@@ -601,6 +609,7 @@ def generate_openapi(
         }
         spec["paths"][f"/{schema.name}"] = {"post": path_op}
 
+    spec["components"] = {"schemas": component_schemas}
     return spec
 
 
