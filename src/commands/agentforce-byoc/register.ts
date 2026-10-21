@@ -61,7 +61,7 @@ export default class Register extends SfCommand<RegisterResult> {
     'success-response-key': Flags.string({
       summary:
         "OpenAPI response key for the function result (default: 200). Use 'default' so the action " +
-        'output is named defaultResponse, which Prompt Builder merge fields can reference.',
+        'output is named defaultExc, which Prompt Builder merge fields can reference.',
     }),
     'dry-run': Flags.boolean({
       summary: 'Generate and template the metadata but do not deploy to the org.',
