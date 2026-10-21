@@ -56,6 +56,12 @@ FEATURE_ID_ENV_VAR = "SFDC_FEATURE_ID"
 # to propagate the distributed trace. OPTIONAL: when unset, the header is not sent.
 TRACE_ID_ENV_VAR = "SFDC_TRACE_ID"
 
+# Environment variable carrying the invoking request's W3C trace context,
+# injected into the managed sandbox by the Agentforce runtime. Forwarded as the
+# traceparent header so the relay request joins the invoke's trace.
+# OPTIONAL: when unset, the header is not sent.
+TRACEPARENT_ENV_VAR = "TRACEPARENT"
+
 # Relay function identifiers understood by the Relay API.
 RELAY_FUNCTION_LLM = "llm"
 RELAY_FUNCTION_LLM_CHAT = "llm_chat"
@@ -169,8 +175,9 @@ class AgentforceRelayGatewayClient(BaseRelayGatewayClient):
     Used when running in the managed sandbox. The org JWT, tenant id, user id,
     and app context are all read from environment variables injected into the
     managed sandbox (``ORG_JWT_TOKEN``, ``SFDC_CORE_TENANT_ID``, ``SFDC_USER_ID``,
-    ``SFDC_APP_CONTEXT``); the optional client feature id and trace id come from
-    ``SFDC_FEATURE_ID`` / ``SFDC_TRACE_ID`` when injected. The Relay API endpoint
+    ``SFDC_APP_CONTEXT``); the optional client feature id, trace id, and W3C
+    trace context come from ``SFDC_FEATURE_ID`` / ``SFDC_TRACE_ID`` /
+    ``TRACEPARENT`` when injected. The Relay API endpoint
     is resolved by :func:`resolve_relay_url`: ``BYOC_PROXY_URL`` verbatim when
     set (the runtime injects it already pointing at ``/byoc/service``), else the
     production default with ``/byoc/service`` appended.
@@ -295,6 +302,20 @@ class AgentforceRelayGatewayClient(BaseRelayGatewayClient):
         """
         return os.getenv(TRACE_ID_ENV_VAR) or None
 
+    def _get_traceparent(self) -> Optional[str]:
+        """
+        Resolve the optional W3C trace context.
+
+        Reads ``TRACEPARENT`` from the environment (injected by the Agentforce
+        runtime for the invoking request) to be forwarded as the
+        ``traceparent`` header, so the relay request is a child of the invoke
+        in the same trace.
+
+        Unlike the mandatory identity vars, this is OPTIONAL: returns ``None``
+        when unset (or blank) so the caller omits the header entirely.
+        """
+        return os.getenv(TRACEPARENT_ENV_VAR) or None
+
     def _build_request_body(self, function: str, parameter: Dict[str, Any]) -> Dict[str, Any]:
         """
         Construct the Relay request body.
@@ -326,10 +347,12 @@ class AgentforceRelayGatewayClient(BaseRelayGatewayClient):
         from the injected environment and sent as the ``x-sfdc-app-context`` /
         ``x-sfdc-user-id`` headers.
 
-        Two OPTIONAL client-context headers are forwarded only when their env
+        Three OPTIONAL client-context headers are forwarded only when their env
         vars are set: ``x-client-feature-id`` (from ``SFDC_FEATURE_ID``, used by
-        the LLM Gateway for feature attribution) and ``x-b3-traceid`` (from
-        ``SFDC_TRACE_ID``, for distributed-trace propagation). When either env
+        the LLM Gateway for feature attribution), ``x-b3-traceid`` (from
+        ``SFDC_TRACE_ID``, the upstream caller's B3 trace id), and
+        ``traceparent`` (from ``TRACEPARENT``, the invoking request's trace
+        context, so the relay request joins the invoke's trace). When an env
         var is unset the corresponding header is omitted entirely.
 
         Args:
@@ -363,6 +386,9 @@ class AgentforceRelayGatewayClient(BaseRelayGatewayClient):
         trace_id = self._get_trace_id()
         if trace_id:
             headers["x-b3-traceid"] = trace_id
+        traceparent = self._get_traceparent()
+        if traceparent:
+            headers["traceparent"] = traceparent
         logger.info(
             "Relaying %s for tenant=%s to %s",
             function,
