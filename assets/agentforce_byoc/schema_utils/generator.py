@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import re
 import sys
 from typing import (
     Any,
@@ -491,6 +492,44 @@ def _build_response_schema(
     return python_type_to_openapi(type_source)
 
 
+_SUCCESS_RESPONSE_KEY = re.compile(r"^(2\d\d|2XX|default)$")
+
+
+def _validate_success_response_key(key: str) -> None:
+    """Accept only OpenAPI response keys that denote success: a 2xx code, ``2XX``, or ``default``."""
+    if not _SUCCESS_RESPONSE_KEY.match(key):
+        raise ValueError(
+            f"Invalid success response key '{key}': use a 2xx status code, '2XX', or 'default'"
+        )
+
+
+def _result_schema_name(function_name: str) -> str:
+    """Component name for a function's output schema, e.g. ``addNumbersResult``.
+
+    Function names are unique within a module, so the component names are too.
+    """
+    return function_name + "Result"
+
+
+def _wrap_gateway_envelope(result_ref: str) -> Dict[str, Any]:
+    """Wrap a reference to the function result schema in the AI Gateway envelope.
+
+    The AI Gateway returns a Code Extension's output as
+    ``{"attributes": {"result": <function output>}}``, and the caller receives that
+    body unchanged, so the declared response must match or every output field
+    resolves to null.
+    """
+    return {
+        "type": "object",
+        "properties": {
+            "attributes": {
+                "type": "object",
+                "properties": {"result": {"$ref": result_ref}},
+            }
+        },
+    }
+
+
 def _build_x_function(
     schema: FunctionSchema,
     namespace: str,
@@ -518,10 +557,19 @@ def generate_openapi(
     *,
     namespace: str = _DEFAULT_NAMESPACE,
     package: str = _DEFAULT_PACKAGE,
+    success_response_key: str = "200",
 ) -> Dict[str, Any]:
-    """Build an OpenAPI 3.0.0 dict from a list of ``FunctionSchema`` objects."""
+    """Build an OpenAPI 3.0.0 dict from a list of ``FunctionSchema`` objects.
+
+    *success_response_key* is the OpenAPI response key for the function result.
+    External Services names the action output after it, so ``"default"`` yields an
+    output called ``defaultExc`` that Prompt Builder merge fields can reference
+    (``{{CodeExtension.<action>.200}}`` is unresolvable: Jinja reads ``.200`` as an
+    integer subscript).
+    """
     if not schemas:
         raise ValueError("No @entry_func functions found in the input file")
+    _validate_success_response_key(success_response_key)
 
     first = schemas[0]
     spec: Dict[str, Any] = {
@@ -540,7 +588,10 @@ def generate_openapi(
         "paths": {},
     }
 
+    component_schemas: Dict[str, Any] = {}
     for schema in schemas:
+        result_name = _result_schema_name(schema.name)
+        component_schemas[result_name] = _build_response_schema(schema, schema.class_map)
         summary = (schema.docstring or "").split("\n")[0].rstrip(".")
         path_op: Dict[str, Any] = {
             "summary": summary,
@@ -560,11 +611,13 @@ def generate_openapi(
                 },
             },
             "responses": {
-                "200": {
+                success_response_key: {
                     "description": "Successful response",
                     "content": {
                         "application/json": {
-                            "schema": _build_response_schema(schema, schema.class_map),
+                            "schema": _wrap_gateway_envelope(
+                                f"#/components/schemas/{result_name}"
+                            ),
                         }
                     },
                 },
@@ -573,6 +626,7 @@ def generate_openapi(
         }
         spec["paths"][f"/{schema.name}"] = {"post": path_op}
 
+    spec["components"] = {"schemas": component_schemas}
     return spec
 
 
@@ -586,12 +640,18 @@ def generate_schema(
     *,
     namespace: str = _DEFAULT_NAMESPACE,
     package: str = _DEFAULT_PACKAGE,
+    success_response_key: str = "200",
 ) -> Dict[str, Any]:
     """Return the OpenAPI 3.0.0 dict for the ``@entry_func`` functions in *source*.
 
     *source* is Python source code (a string), parsed via AST — never imported.
     """
-    return generate_openapi(extract_entry_functions(source), namespace=namespace, package=package)
+    return generate_openapi(
+        extract_entry_functions(source),
+        namespace=namespace,
+        package=package,
+        success_response_key=success_response_key,
+    )
 
 
 def generate_schema_yaml(
@@ -599,13 +659,16 @@ def generate_schema_yaml(
     *,
     namespace: str = _DEFAULT_NAMESPACE,
     package: str = _DEFAULT_PACKAGE,
+    success_response_key: str = "200",
 ) -> str:
     """Read the Python file at *source_path* and return its OpenAPI spec as YAML."""
     import yaml
 
     with open(source_path, "r") as f:
         source = f.read()
-    spec = generate_schema(source, namespace=namespace, package=package)
+    spec = generate_schema(
+        source, namespace=namespace, package=package, success_response_key=success_response_key
+    )
     return yaml.dump(spec, default_flow_style=False, sort_keys=False)
 
 
@@ -680,6 +743,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=None,
         help="Path to a YAML or JSON config file with namespace/package",
     )
+    parser.add_argument(
+        "--success-response-key",
+        default="200",
+        help="OpenAPI response key for the function result, e.g. 'default' (default: 200)",
+    )
 
     args = parser.parse_args(argv)
 
@@ -689,7 +757,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         config_path=args.config,
     )
 
-    yaml_str = generate_schema_yaml(args.input, namespace=namespace, package=package)
+    yaml_str = generate_schema_yaml(
+        args.input,
+        namespace=namespace,
+        package=package,
+        success_response_key=args.success_response_key,
+    )
 
     if args.output:
         with open(args.output, "w") as f:

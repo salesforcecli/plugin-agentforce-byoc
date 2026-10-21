@@ -111,6 +111,15 @@ sf agentforce-byoc register --namespace myOrg --package my-agent --dry-run --tar
 - DeveloperName is derived from `--package` (`my-agent` → `my_agent`); override with `--registration-name`.
 - **Needs Python 3 + PyYAML** on the PATH — the one command that shells out to the
   Python SDK. Point it at a specific interpreter with `--python /path/to/python`.
+- The action's output is the function's return value wrapped by the AI Gateway as
+  `{"attributes": {"result": <your @responseSchema fields>}}`, so read a field at
+  `attributes.result.<field>`. Re-run `register` whenever `@responseSchema` changes.
+- **Prompt Builder:** register with `--success-response-key default` (the output is
+  then named `defaultExc`), and read fields through a variable:
+
+  ```jinja
+  {% set out = CodeExtension.<registration>_<operation>.defaultExc %}{{ out.attributes.result.<field> }}
+  ```
 
 ---
 
